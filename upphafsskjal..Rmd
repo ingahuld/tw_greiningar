@@ -1,0 +1,76 @@
+---
+title: "upphafsskjal."
+output: html_document
+---
+
+```{r}
+library(dbplyr)
+library(dplyr)
+library(RMySQL)
+library(tidyr)
+library(MASS)
+```
+
+```{r}
+twDb<-src_mysql("tw_quizdb", host = "127.0.0.1", port = 3306, user = "iha6", password = "uOue2JeeVSMZE")
+answer <- tbl(twDb, "answer")
+lecture<-tbl(twDb,"lecture")
+host<-tbl(twDb,"host")
+coinAward<-tbl(twDb,"coinAward")
+lectureGlobalSetting<-tbl(twDb,"lectureGlobalSetting")
+lectureQuestions<-tbl(twDb,"lectureQuestions")
+lectureSetting<-tbl(twDb,"lectureSetting")
+lectureStudentSetting<-tbl(twDb,"lectureStudentSetting")
+subscription<-as.data.frame(tbl(twDb,"subscription"))
+```
+
+```{r}
+answer%>%summarise(n=n())
+```
+
+```{r}
+question<-tbl(twDb,"question")
+```
+
+```{r}
+answer%>%filter(timeStart>'2020-01-01 01:00:00')
+```
+
+```{r}
+question%>%dplyr::select(plonePath,questionId)->miniQ
+ miniQ<-as.data.frame(miniQ)
+ grep("Qgen-q2297",miniQ$plonePath)
+```
+
+```{r}
+miniQ[grep("Qgen-q2297",miniQ$plonePath),]
+```
+
+```{r}
+hash <- read.csv("bighashfile.txt")
+```
+
+```{r}
+ NOTAj <-as.data.frame(miniQ)
+ grep("NOTA+",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA)
+ NOTAj[grep("NOTA+",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA),]
+```
+
+```{r}
+ NOTAn <-as.data.frame(miniQ)
+ grep("NOTA-",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA)
+ NOTAj[grep("NOTA-",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA),]
+```
+
+```{r}
+ AOTAj <-as.data.frame(miniQ)
+ grep("AOTA+",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA)
+ NOTAj[grep("AOTA+",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA),]
+```
+
+```{r}
+ AOTAn <-as.data.frame(miniQ)
+ grep("AOTA-",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA)
+ NOTAj[grep("AOTA-",hash$X.tutor.web.stats.lotmidmisseri2020.lecture010..Qgen.q101001.d18ffc3823fa91864594d6ef3af147f6425f91f9be100e01345d14242c7d39e0.5.noNOTA),]
+```
+
