@@ -1,0 +1,193 @@
+---
+title: "betriuppsetning"
+output: html_document
+---
+
+```{r}
+library(dbplyr)
+library(dplyr)
+library(RMySQL)
+library(tidyr)
+library(MASS)
+library(tidyverse)
+library(ggplot2)
+library(cowplot)
+```
+
+```{r, cache=T}
+twDb<-src_mysql("tw_quizdb", host = "127.0.0.1", port = 3306, user = "iha6", password = "uOue2JeeVSMZE")
+answer<-tbl(twDb,"answer")
+lecture<-tbl(twDb,"lecture")
+question<-tbl(twDb,"question")
+host<-tbl(twDb,"host")
+coinAward<-tbl(twDb,"coinAward")
+lectureStudentSetting<-tbl(twDb,"lectureStudentSetting")
+lectureStudentSetting%>%group_by(key)%>%summarise(stdev=sd(value,na.rm=T),stdevlog=sd(log2(value),na.rm=T))->stdevs
+
+hashes<-read.csv("/Users/inga/documents/tw-greiningar/bighashfile.wide.txt",sep=" ",col.names = c("dir","qName","hash","hash2","hash3","numQ","notaType"),na.strings = ".")
+hashes <- hashes %>% filter(numQ=="4")
+
+plonePath<-unique(paste(hashes$dir,hashes$qName,sep=""))
+plonePath<-as.data.frame(plonePath)
+hashes$plonePath<-paste(hashes$dir,hashes$qName,sep="")
+left_join(plonePath,as.data.frame(question))->myQuestions
+
+answer%>%filter(timeStart>"2020-01-01 00:01:01")->answerRed
+answerRed<-as.data.frame(answerRed)
+inner_join(answerRed,myQuestions) -> myAnswer
+
+myAnswer<-as.data.frame(myAnswer)
+inner_join(myAnswer,hashes)->fullAnswerData
+fullAnswerData
+view(as.data.frame(fullAnswerData))
+```
+
+```{r}
+fullAnswerData_auka <- mutate(fullAnswerData, svar=case_when(correct == 0 ~ "rangt",
+                                                             correct == 1 ~ "rétt"
+))
+fullAnswerData_auka <- as.data.frame(fullAnswerData_auka)
+
+```
+
+
+```{r, cache=T}
+#tafla án endurtekinna spurninga
+fad_anendurt <- fullAnswerData[!duplicated(fullAnswerData$questionId), ]
+fad_anendurt
+view(as.data.frame(fad_anendurt))
+summary(fad_anendurt)
+```
+
+```{r}
+#rétt svör
+fad_correct <- fullAnswerData%>%filter(correct==1)
+fad_correct
+```
+```{r}
+spurningar_tafla_a <- group_by(fad_correct, questionId) %>%
+  summarise("fj.rétt"=n())
+
+spurningar_tafla_b <- group_by(fullAnswerData, questionId) %>%
+  summarise("fj.svara"=n(), "notaType"=unique(notaType))
+
+spurningar_tafla <- inner_join(spurningar_tafla_a, spurningar_tafla_b)
+
+spurningar_tafla <- within(spurningar_tafla, hlutfall.réttrar <- spurningar_tafla$fj.rétt/spurningar_tafla$fj.svara)
+
+spurningar_tafla_df <- as.data.frame(spurningar_tafla)
+view(spurningar_tafla_df)
+```
+
+```{r}
+ggplot(spurningar_tafla_df, aes(x= notaType, y= hlutfall.réttrar, group=notaType)) +   geom_boxplot() +
+  xlab("NOTA tegundin") + 
+        ylab("Hlutfall milli svara og réttra svara") +
+  geom_smooth(method='lm', color="red", aes(group=1)) +
+  ggtitle("Samband NOTA tegundar og réttrar svara í hverri spurningu.")
+```
+
+```{r}
+nem_tafla_a <- group_by(fad_correct, studentId) %>%
+  summarise("fj.rétt"=n(),"An.rétt" =sum(notaType=="AOTA-"), "Aj.rétt"=sum(notaType=="AOTA+"), "Nj.rétt"=sum(notaType=="NOTA+"), "Nn.rétt"=sum(notaType=="NOTA-"), "Na.rétt" =sum(notaType=="noNOTA"))
+
+nem_tafla_b <- group_by(fullAnswerData, studentId) %>%
+  summarise("fj.svara"=n(), "An" =sum(notaType=="AOTA-"), "Aj"=sum(notaType=="AOTA+"), "Nj"=sum(notaType=="NOTA+"), "Nn"=sum(notaType=="NOTA-"), "Na" =sum(notaType=="noNOTA"))
+
+nem_tafla <- inner_join(nem_tafla_a, nem_tafla_b)
+
+nem_tafla <- within(nem_tafla, hlutfall.réttrar <- nem_tafla$fj.rétt/nem_tafla$fj.svara)
+
+nem_tafla <- nem_tafla%>%filter(fj.svara>7)
+
+nem_tafla_df <- as.data.frame(nem_tafla)
+view(nem_tafla_df)
+```
+
+```{r, cache=TRUE}
+Aj <- ggplot(nem_tafla_df, aes(x=Aj , y=Aj.rétt))+
+  geom_point(size=0.25) +
+  geom_smooth(method='lm', colour="red", size=0.4) +
+  xlab("fj. svara") + ylab("fj. rétt")
+
+An <- ggplot(nem_tafla_df, aes(x=An , y=An.rétt))+
+  geom_point(size=0.25) +
+  geom_smooth(method='lm', colour="red", size=0.4)+
+  xlab("fj. svara") + ylab("fj. rétt")
+
+Nj <- ggplot(nem_tafla_df, aes(x=Nj , y=Nj.rétt))+
+  geom_point(size=0.25) +
+  geom_smooth(method='lm', colour="red", size=0.4)+
+  xlab("fj. svara") + ylab("fj. rétt")
+
+Nn <- ggplot(nem_tafla_df, aes(x=Nn, y=Nn.rétt))+
+  geom_point(size=0.25) +
+  geom_smooth(method='lm', colour="red", size=0.4)+
+  xlab("fj. svara") + ylab("fj. rétt")
+
+Na <- ggplot(nem_tafla_df, aes(x=Na , y=Na.rétt))+
+  geom_point(size=0.25) +
+  geom_smooth(method='lm', colour="red", size=0.4)+
+  xlab("fj. svara") + ylab("fj. rétt")
+```
+
+```{r, cache=TRUE}
+saman_gröf <- plot_grid(
+  Nj, An,Na, Aj,Nn,
+  labels=c("NOTA+","AOTA-", "noNOTA", "AOTA+", "NOTA-"),
+  label_x = 0, label_y = 0,
+  hjust = -0.5, vjust = -0.5
+  )
+
+title <- ggdraw() + 
+  draw_label(
+    "Samband fjölda svara og fjölda réttra svara eftir nemendum",
+    fontface = 'bold',
+    x = 0,
+    hjust = 0
+  ) +
+  theme(
+    # add margin on the left of the drawing canvas,
+    # so title is aligned with left edge of first plot
+    plot.margin = margin(0, 0, 0, 7)
+  )
+plot_grid(
+  title, saman_gröf,
+  ncol = 1,
+  # rel_heights values control vertical title margins
+  rel_heights = c(0.1, 1)
+)
+Aj
+An
+Nj
+Nn
+Na
+```
+
+
+```{r}
+fad_tafla <- group_by(fullAnswerData, notaType)%>%
+  summarise("fj.spurninga" = length(unique(questionId)), "fj.svara"=n())
+
+#tafla með réttum svörum
+fad_correct_tafla <- group_by(fad_correct, notaType)%>%
+  summarise("fj.rétt"=n())
+fad_correct_tafla
+
+nett <- full_join(fad_tafla, fad_correct_tafla)
+nett
+
+nett <- within(nett, hlutfall.réttrar <- nett$fj.rétt/nett$fj.svara)
+nett <- within(nett, fj.rangt <- nett$fj.svara-nett$fj.rétt)
+nett
+```
+
+```{r}
+ggplot(fullAnswerData_auka, aes(x=notaType,fill=svar)) +
+  geom_bar(position = "fill")+
+  xlab("NOTA tegund") +
+  ylab("Fjöldi") +
+  ggtitle("Samband réttrar og rangra svara sem hlutföll")  
+```
+
+
